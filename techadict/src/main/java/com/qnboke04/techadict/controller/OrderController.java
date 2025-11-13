@@ -21,23 +21,27 @@ public class OrderController {
 
     OrderService orderService;
 
-    // ✅ 1. Tạo đơn hàng mới (FE gửi OrderRequest gồm userId + items + addressId hoặc shippingInfo)
+    // ===========================
+    // ✅ 1. Tạo đơn hàng mới
+    // ===========================
     @PostMapping
     public ApiResponse<OrderResponse> create(@RequestBody OrderRequest request) {
         try {
             return ApiResponse.<OrderResponse>builder()
                     .result(orderService.create(request))
-                    .message("✅ Đơn hàng đã được tạo thành công")
+                    .message("Đơn hàng đã được tạo thành công")
                     .build();
         } catch (RuntimeException e) {
             return ApiResponse.<OrderResponse>builder()
                     .code(400)
-                    .message("❌ Lỗi khi tạo đơn hàng: " + e.getMessage())
+                    .message("Lỗi khi tạo đơn hàng: " + e.getMessage())
                     .build();
         }
     }
 
-    // ✅ 2. Lấy tất cả đơn hàng (Admin)
+    // ===========================
+    // ✅ 2. Admin: lấy tất cả đơn hàng
+    // ===========================
     @GetMapping
     public ApiResponse<List<OrderResponse>> getAll() {
         return ApiResponse.<List<OrderResponse>>builder()
@@ -46,7 +50,9 @@ public class OrderController {
                 .build();
     }
 
-    // ✅ 3. Lấy danh sách đơn hàng của 1 người dùng
+    // ===========================
+    // ✅ 3. Lấy đơn hàng theo user
+    // ===========================
     @GetMapping("/user/{userId}")
     public ApiResponse<List<OrderResponse>> getByUser(@PathVariable String userId) {
         return ApiResponse.<List<OrderResponse>>builder()
@@ -55,7 +61,9 @@ public class OrderController {
                 .build();
     }
 
+    // ===========================
     // ✅ 4. Lấy chi tiết 1 đơn hàng
+    // ===========================
     @GetMapping("/{orderId}")
     public ApiResponse<OrderResponse> getById(@PathVariable String orderId) {
         return ApiResponse.<OrderResponse>builder()
@@ -64,25 +72,54 @@ public class OrderController {
                 .build();
     }
 
-    // ✅ 5. Cập nhật trạng thái đơn hàng (Admin / nhân viên)
+    // ===========================
+    // ✅ 5. Admin: cập nhật trạng thái đơn
+    // ===========================
     @PutMapping("/{orderId}/status")
     public ApiResponse<OrderResponse> updateStatus(
             @PathVariable String orderId,
-            @RequestParam String status) {
+            @RequestParam String status
+    ) {
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.updateStatus(orderId, status))
-                .message("Trạng thái đơn hàng đã được cập nhật: " + status)
+                .message("Trạng thái đơn hàng đã cập nhật: " + status)
                 .build();
     }
 
-    // ✅ 6. Cập nhật trạng thái thanh toán (COD → SUCCESS)
+    // ===========================
+    // ✅ 6. Admin: cập nhật payment
+    // ===========================
     @PutMapping("/{orderId}/payment")
     public ApiResponse<OrderResponse> updatePayment(
             @PathVariable String orderId,
-            @RequestParam String status) {
+            @RequestParam String status
+    ) {
         return ApiResponse.<OrderResponse>builder()
                 .result(orderService.updatePayment(orderId, status))
-                .message("Trạng thái thanh toán đã được cập nhật: " + status)
+                .message("Trạng thái thanh toán đã cập nhật: " + status)
                 .build();
     }
+
+    // ===========================
+    // 🚀 7. User: hủy đơn hàng
+    // ===========================
+    @PutMapping("/{orderId}/cancel")
+    public ApiResponse<OrderResponse> cancelOrder(
+            @PathVariable String orderId,
+            @RequestParam String userId
+    ) {
+        try {
+            return ApiResponse.<OrderResponse>builder()
+                    .result(orderService.cancelOrder(orderId, userId))
+                    .message("Đơn hàng đã được hủy thành công")
+                    .build();
+        } catch (RuntimeException e) {
+            return ApiResponse.<OrderResponse>builder()
+                    .code(400)
+                    .message("Không thể hủy đơn hàng: " + e.getMessage())
+                    .build();
+        }
+    }
+
+
 }

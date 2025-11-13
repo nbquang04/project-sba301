@@ -171,4 +171,61 @@ public class OrderService {
     public List<OrderResponse> getByUser(String userId) {
         return orderMapper.toOrderResponseList(ordersRepository.findByUserId(userId));
     }
+
+    public OrderResponse cancelOrder(String orderId, String userId) {
+
+        // 1️⃣ Kiểm tra input
+        if (userId == null || userId.isEmpty()) {
+            throw new RuntimeException("User ID is required");
+        }
+
+        // 2️⃣ Tìm đơn hàng
+        Orders order = ordersRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // 3️⃣ Kiểm tra quyền hủy đơn
+        if (!order.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Bạn không có quyền hủy đơn này");
+        }
+
+        // 4️⃣ Chỉ được hủy khi đang chờ xác nhận
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new RuntimeException("Không thể hủy đơn ở trạng thái: " + order.getStatus());
+        }
+
+        // 5️⃣ Không thể hủy nếu đã thanh toán BANK thành công
+        if (order.getPayment() != null &&
+                order.getPayment().getMethod() == PaymentMethod.BANK &&
+                order.getPayment().getStatus() == PaymentStatus.SUCCESS) {
+
+            throw new RuntimeException("Đơn đã thanh toán, không thể hủy");
+        }
+
+        // 6️⃣ Hoàn lại tồn kho
+        for (OrderItem item : order.getItems()) {
+            ProductVariants variant = item.getVariant();
+
+            int current = Optional.ofNullable(variant.getQuantity()).orElse(0);
+            variant.setQuantity(current + item.getQuantity());
+
+            variantsRepository.save(variant);
+        }
+
+        // 7️⃣ Cập nhật trạng thái đơn
+        order.setStatus(OrderStatus.CANCELED);
+
+        // 8️⃣ Cập nhật trạng thái thanh toán
+        if (order.getPayment() != null) {
+            order.getPayment().setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(order.getPayment());
+        }
+
+        // 9️⃣ Lưu đơn hàng
+        ordersRepository.save(order);
+
+        return orderMapper.toOrderResponse(order);
+    }
+
+
+
 }

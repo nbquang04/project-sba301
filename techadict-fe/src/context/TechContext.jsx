@@ -1,5 +1,6 @@
 // 📦 src/context/TechContext.jsx
 import React, { createContext, useState, useEffect, useCallback } from "react";
+import api from "../service/index.jsx";
 import {
   login as apiLogin,
   register as apiRegister,
@@ -662,6 +663,56 @@ const TechProvider = ({ children }) => {
     }
   }, [showError]);
 
+  const cancelOrder = async (orderId) => {
+    if (!user?.id) {
+      return {
+        success: false,
+        message: "Bạn cần đăng nhập để hủy đơn hàng",
+      };
+    }
+
+    try {
+      // 🟦 Gọi API với userId truyền vào params
+      const res = await api.put(`/orders/${orderId}/cancel`, null, {
+        params: { userId: user.id },
+      });
+
+      // 🔁 Load lại danh sách đơn sau khi hủy
+      await loadOrders();
+
+      return {
+        success: true,
+        message: res.data?.message || "Đơn hàng đã được hủy",
+        data: res.data?.result,
+      };
+
+    } catch (err) {
+
+      console.error("🔥 FULL ERROR:", err);
+      console.error("🔥 ERROR RESPONSE:", err.response);
+      console.error("🔥 ERROR MESSAGE:", err.response?.data?.message);
+      console.error("🔥 STATUS:", err.response?.status);
+
+      // 🟥 Lấy message chi tiết từ BE
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Hủy đơn hàng thất bại";
+
+      return {
+        success: false,
+        message: msg,
+      };
+    }
+  };
+
+
+
+
+
+
+
   // ====================== 🏠 ADDRESS ======================
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
@@ -832,7 +883,7 @@ const TechProvider = ({ children }) => {
         handleUpdatePaymentStatus,
         adminOrder,
         loadAllOrders,
-
+        cancelOrder,
         // Address
         addresses,
         selectedAddress,

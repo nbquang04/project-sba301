@@ -20,7 +20,7 @@ export default function ProductDetail() {
     user,
   } = useContext(TechContext);
 
-  const { showSuccess, showError, showWarning, showInfo } = useNotification();
+  const { showError, showWarning, showInfo } = useNotification();
 
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -31,7 +31,9 @@ export default function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
 
-  // ✅ Load product detail
+  // ================================
+  // 🔥 Load product detail
+  // ================================
   useEffect(() => {
     const fetchDetail = async () => {
       setLoading(true);
@@ -40,15 +42,16 @@ export default function ProductDetail() {
         if (!data) throw new Error("Không tìm thấy sản phẩm");
 
         setProduct(data);
-        setSelectedSize(data.variants?.[0]?.storage || "Default");
-        setSelectedColor(data.variants?.[0]?.color || "Default");
 
-        // Sản phẩm liên quan cùng category
+        // Chọn biến thể đầu tiên mặc định
+        setSelectedSize(data.variants?.[0]?.storage || data.variants?.[0]?.size || "");
+        setSelectedColor(data.variants?.[0]?.color || "");
+
+        // Sản phẩm liên quan
         const related = products.filter(
           (p) =>
             p.id !== id &&
-            (p.categoryId === data.categoryId ||
-              p.category?.id === data.category?.id)
+            (p.categoryName === data.categoryName)
         );
         setRelatedProducts(related.slice(0, 4));
 
@@ -73,27 +76,28 @@ export default function ProductDetail() {
     if (id) fetchDetail();
   }, [id, getProductDetail, products, showError]);
 
-  // === Helper: lấy variant được chọn ===
-  const getSelectedVariant = () => {
-    if (!product?.variants) return null;
-    return (
-      product.variants.find(
-        (v) =>
-          v.storage?.toString() === selectedSize && v.color === selectedColor
-      ) || product.variants[0]
-    );
-  };
+  // ================================
+  // 🧩 Lấy variant đang chọn
+  // ================================
+  const selectedVariant =
+    product?.variants?.find(
+      (v) =>
+        (v.storage?.toString() === selectedSize ||
+          v.size === selectedSize) &&
+        v.color === selectedColor
+    ) || product?.variants?.[0];
 
-  const selectedVariant = getSelectedVariant();
   const currentPrice = selectedVariant?.price || product?.origin_price || 0;
+
   const images = [
     ...(product?.images || []),
-    ...(product?.variants?.flatMap((v) =>
-      v.imageUrl ? [v.imageUrl] : []
-    ) || []),
+    ...(product?.variants?.flatMap((v) => (v.imageUrl ? [v.imageUrl] : [])) ||
+      []),
   ];
 
-  // === 🛒 Thêm vào giỏ hàng ===
+  // ================================
+  // 🛒 Add to cart
+  // ================================
   const handleAdd = async () => {
     if (!user) {
       showWarning("⚠️ Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng!");
@@ -108,14 +112,16 @@ export default function ProductDetail() {
 
     try {
       await handleAddToCart(selectedVariant.id, quantity);
-      await loadCart(); // 🔁 reload giỏ sau khi thêm
+      await loadCart();
     } catch (err) {
-      console.error("❌ Lỗi khi thêm vào giỏ:", err);
-      showError("Không thể thêm sản phẩm vào giỏ hàng. Vui lòng thử lại!");
+      console.error("❌ Add cart error:", err);
+      showError("Không thể thêm vào giỏ hàng!");
     }
   };
 
-  // === 💳 Mua ngay ===
+  // ================================
+  // 💳 Buy now
+  // ================================
   const handleBuyNow = async () => {
     if (!user) {
       showWarning("⚠️ Bạn cần đăng nhập để mua hàng!");
@@ -128,14 +134,13 @@ export default function ProductDetail() {
     setTimeout(() => navigate("/cart"), 600);
   };
 
-  // === Loading & Error UI ===
+  // ================================
+  // LOADING SCREEN
+  // ================================
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-red-500"></div>
-        <p className="ml-4 text-gray-600 font-medium">
-          Đang tải chi tiết sản phẩm...
-        </p>
+        <div className="animate-spin h-16 w-16 border-b-4 border-red-600 rounded-full"></div>
       </div>
     );
   }
@@ -148,25 +153,22 @@ export default function ProductDetail() {
     );
   }
 
-  // === Render ===
+  // ================================
+  // RENDER UI
+  // ================================
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* === Chi tiết sản phẩm === */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
           <ProductGallery images={images} name={product.name} />
+
           <ProductInfo
             product={{
               ...product,
+              brandName: product.brandName,      // ⬅️ SỬA QUAN TRỌNG
               price: currentPrice,
-              discount: 0,
-              rating: 4.8,
-              reviewCount: reviews.length,
-              sold: 200,
-              sizes: [
-                ...new Set(product.variants?.map((v) => v.storage || v.size)),
-              ],
-              colors: [...new Set(product.variants?.map((v) => v.color))],
+              sizes: [...new Set(product.variants.map((v) => v.storage || v.size))],
+              colors: [...new Set(product.variants.map((v) => v.color))],
             }}
             selectedSize={selectedSize}
             selectedColor={selectedColor}
@@ -180,11 +182,9 @@ export default function ProductDetail() {
           />
         </div>
 
-        {/* === Tabs & Reviews === */}
         <ProductTabs product={product} reviews={reviews} />
         <ProductReviews product={product} reviews={reviews} />
 
-        {/* === Sản phẩm liên quan === */}
         {relatedProducts.length > 0 && (
           <RelatedProducts products={relatedProducts} />
         )}
